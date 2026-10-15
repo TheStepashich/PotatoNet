@@ -1,0 +1,17 @@
+{
+  "name": "pnet",
+  "version": "1.0.0",
+  "description": "pnet — простой P2P VPN на базе EasyTier",
+  "main": "index.html",
+  "nodejs": true,
+  "single-instance": true,
+  "window": {
+    "title": "pnet",
+    "width": 1000,
+    "height": 760,
+    "min_width": 780,
+    "min_height": 560,
+    "resizable": true
+  },
+  "dependencies": {}
+}

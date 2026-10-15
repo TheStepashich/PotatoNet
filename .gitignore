@@ -1,0 +1,29 @@
+# EasyTier binaries
+/easytier-*/
+easytier-core.exe
+easytier-cli.exe
+easytier.zip
+
+# local runtime config
+config.yml
+
+# local builds
+/pnet
+/pnet.exe
+/pnet.zip
+/build/
+/dist-*/
+
+# Android / Rust / Node build artifacts
+android/app/target/
+android/app/source/target/
+android/fork/build/
+android/app/*.apk
+android/app/*.idsig
+android/app/source/node_modules/
+android/app/source/easytier-gui/node_modules/
+android/app/source/easytier-gui/dist/
+android/app/source/easytier-gui/src-tauri/gen/
+
+# misc
+*.log

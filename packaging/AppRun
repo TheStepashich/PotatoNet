@@ -1,0 +1,5 @@
+#!/bin/sh
+# AppRun для AppImage: запускает NW.js-приложение, передавая ему каталог с
+# package.json, чтобы оно нашло свои ресурсы в смонтированном образе.
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/pnet" "$HERE/usr/bin" "$@"

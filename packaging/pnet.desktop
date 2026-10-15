@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=pnet
+GenericName=P2P VPN
+Comment=Простая P2P VPN на базе EasyTier
+Exec=pnet
+Icon=pnet
+Terminal=false
+Categories=Network;Security;
+Keywords=vpn;p2p;easytier;network;
+StartupWMClass=pnet
