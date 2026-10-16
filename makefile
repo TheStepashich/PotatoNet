@@ -65,13 +65,19 @@ build: nw-runtime
 		curl -fL -o $(BUILD_DIR)/$(ET_ZIP) \
 			https://github.com/EasyTier/EasyTier/releases/download/v$(ET_VERSION)/$(ET_ZIP); \
 	fi
-	@unzip -j -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' \
-		-d $(DIST)/$(ET_DIRNAME) >/dev/null
+	@unzip -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' '$(ET_DIRNAME)/Packet.dll' '$(ET_DIRNAME)/wintun.dll' -d $(DIST)/ >/dev/null 2>&1 || \
+	unzip -j -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' '$(ET_DIRNAME)/Packet.dll' '$(ET_DIRNAME)/wintun.dll' -d $(DIST)/$(ET_DIRNAME) >/dev/null 2>&1 || true
 	@chmod +x $(DIST)/$(ET_DIRNAME)/$(ET_CORE) $(DIST)/$(ET_DIRNAME)/$(ET_CLI) 2>/dev/null || true
 	@cp -f packaging/THIRD_PARTY_NOTICES.md $(DIST)/ 2>/dev/null || true
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(ARCH) \
 	$(GO) build $(LDFLAGS) -o $(DIST)/$(CORE_BIN) $(SRC_DIR)
 	@rm -rf $(BUILD_DIR)/.keep
+	@# Оптимизация размера для Windows
+	@PATH="$$HOME/.local/bin:$$PATH" upx --force --best --lzma $(DIST)/$(APP_BIN) $(DIST)/$(CORE_BIN) 2>/dev/null || true
+	@# Удаляем лишние локали
+	@if [ "$(PLATFORM)" = "windows" ]; then 		cd $(DIST)/locales && for f in *.pak *.pak.info; do 			case "$$f" in 				en-US.pak|en-US.pak.info|ru.pak|ru.pak.info) ;; 				*) rm -f "$$f" ;; 			esac; 		done 2>/dev/null || true; 	fi
+	@# Удаляем ненужные файлы из дистрибутива
+	@if [ "$(PLATFORM)" = "windows" ]; then 		rm -f $(DIST)/credits.html 2>/dev/null || true; 	fi
 	@echo "Готово: $(DIST)  (запуск: $(DIST)/$(APP_BIN))"
 
 # Скачивает портативный рантайм NW.js в build/nw-runtime-<platform> (один раз).

@@ -12,7 +12,8 @@ import (
 )
 
 func SetupProcAttrs(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000200} // CREATE_NEW_PROCESS_GROUP
+	// CREATE_NEW_PROCESS_GROUP + CREATE_NO_WINDOW (скрыть консоль)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000200 | 0x08000000}
 }
 
 func KillProcessGroup(pid int) {

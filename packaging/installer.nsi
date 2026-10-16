@@ -10,7 +10,7 @@ OutFile "..\build\pnet-setup-x64.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
 InstallDirRegKey HKCU "Software\${APP_NAME}" "InstallDir"
 RequestExecutionLevel user
-SetCompressor /SOLID lzma
+SetCompressor lzma
 
 VIProductVersion "1.0.0.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"

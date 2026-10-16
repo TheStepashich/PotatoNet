@@ -47,7 +47,7 @@ func installEasyTier(paths platform.Paths) error {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return err
 	}
-	for _, name := range []string{platform.CoreName(), platform.CLIName()} {
+	for _, name := range []string{platform.CoreName(), platform.CLIName(), "Packet.dll", "wintun.dll"} {
 		src := filepath.Join(paths.BundleDir, name)
 		dst := filepath.Join(destDir, name)
 
@@ -59,7 +59,7 @@ func installEasyTier(paths platform.Paths) error {
 			if err := copyFile(src, dst, 0o755); err != nil {
 				return fmt.Errorf("не удалось установить EasyTier: %v", err)
 			}
-		case derr != nil:
+		case derr != nil && name != "Packet.dll" && name != "wintun.dll":
 			return fmt.Errorf("EasyTier не найден (комплект: %s, данные: %s)", src, dst)
 		}
 	}
