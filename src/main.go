@@ -1,41 +1,50 @@
-package main
+package backend
 
 import (
 	"flag"
+	"fmt"
 	"os"
 )
 
-func main() {
-	runF := flag.Bool("run", false, "Start all networks (downloads EasyTier on first run)")
-	stopF := flag.Bool("stop", false, "Stop all networks")
-	peersF := flag.Bool("peers", false, "Show connected peers")
-	serverF := flag.Bool("server", false, "Run local API server (default)")
-	dataDirF := flag.String("data-dir", "", "Data directory (config.yml, EasyTier)")
+// Main — точка входа CLI-режима (headless): запуск/остановка сетей,
+// локальный API-сервер, автозапуск. GUI-окно (Wails) живёт в корневом пакете.
+func Main(args []string) {
+	fs := flag.NewFlagSet("PotatoNet", flag.ExitOnError)
+	versionF := fs.Bool("version", false, "Print version and exit")
+	runF := fs.Bool("run", false, "Start all networks (downloads EasyTier on first run)")
+	stopF := fs.Bool("stop", false, "Stop all networks")
+	autostartF := fs.Bool("autostart", false, "Enable autostart")
+	noAutostartF := fs.Bool("no-autostart", false, "Disable autostart")
+	peersF := fs.Bool("peers", false, "Show connected peers")
+	serverF := fs.Bool("server", false, "Run local API server")
+	dataDirF := fs.String("data-dir", "", "Data directory (config.yml, EasyTier)")
+	_ = fs.Parse(args)
 
-	flag.Parse()
-
-	// совместимость со старым синтаксисом: `pnet run` эквивалентно `pnet -run`
+	// совместимость со старым синтаксисом: `PotatoNet run` эквивалентно `PotatoNet -run`
 	cmd := ""
-	if flag.NArg() > 0 {
-		cmd = flag.Arg(0)
+	if fs.NArg() > 0 {
+		cmd = fs.Arg(0)
 	}
 
-	paths := detectPaths(*dataDirF)
-	if len(os.Args[1:]) == 0 {
-		runServer(paths)
-		return
-	}
+	paths := DetectPaths(*dataDirF)
 
-	if *runF || cmd == "run" {
+	switch {
+	case *versionF || cmd == "version":
+		fmt.Println(Version)
+	case *runF || cmd == "run":
 		CheckErr(cmdRun(paths))
-	} else if *stopF || cmd == "stop" {
+	case *stopF || cmd == "stop":
 		cmdStop(paths)
-	} else if *peersF || cmd == "peers" {
+	case *autostartF || cmd == "autostart":
+		CheckErr(CmdAutostart(true))
+	case *noAutostartF || cmd == "no-autostart":
+		CheckErr(CmdAutostart(false))
+	case *peersF || cmd == "peers":
 		cmdPeers(paths)
-	} else if *serverF || cmd == "server" || cmd == "gui" {
+	case *serverF || cmd == "server":
 		runServer(paths)
-	} else {
-		flag.PrintDefaults()
+	default:
+		fs.PrintDefaults()
 		os.Exit(1)
 	}
 }

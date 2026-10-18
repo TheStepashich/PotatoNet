@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"encoding/json"
@@ -10,12 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"pnet/src/platform"
+	"potatonet/src/platform"
 )
 
 const defaultPanelAddr = "127.0.0.1:19090"
 
-// gui — локальный HTTP-API, к которому обращается окно NW.js.
+// gui — локальный HTTP-API (режим `PotatoNet server`); окно GUI работает через
+// Wails-биндинги, а не через этот сервер.
 type gui struct {
 	paths platform.Paths
 	cfg   *Config
@@ -30,7 +31,7 @@ func runServer(paths platform.Paths) {
 		logf("EasyTier: %v", err)
 	}
 
-	if !platform.IsAdmin() && os.Getenv("PNET_SKIP_ADMIN") == "" {
+	if !platform.IsAdmin() && os.Getenv("POTATONET_SKIP_ADMIN") == "" {
 		fmt.Println("Backend requires administrator privileges. Relaunching...")
 		if err := platform.RelaunchElevated(paths.LibDir); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to elevate: %v\n", err)
@@ -46,7 +47,7 @@ func runServer(paths platform.Paths) {
 	g := &gui{paths: paths, cfg: cfg}
 
 	addr := defaultPanelAddr
-	if v := strings.TrimSpace(os.Getenv("PNET_ADDR")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("POTATONET_ADDR")); v != "" {
 		addr = v
 	} else if strings.TrimSpace(cfg.WebPanelAdress) != "" {
 		addr = strings.TrimSpace(cfg.WebPanelAdress)
@@ -57,7 +58,7 @@ func runServer(paths platform.Paths) {
 		logf("Failed to listen on %s: %v", addr, err)
 		os.Exit(1)
 	}
-	logf("pnet backend listening on %s", addr)
+	logf("PotatoNet backend listening on %s", addr)
 
 	srv := &http.Server{Handler: g.mux()}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
@@ -181,7 +182,7 @@ func (g *gui) handlePeers(w http.ResponseWriter, r *http.Request) {
 	networks := append([]Network(nil), g.cfg.Networks...)
 	g.mu.Unlock()
 
-	res := map[string]networkPeers{}
+	res := map[string]NetworkPeers{}
 	for _, n := range networks {
 		np := peersForNetwork(g.paths, n.Name)
 		np.Connected = isRunning(n.Name)

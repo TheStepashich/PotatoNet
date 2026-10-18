@@ -25,7 +25,7 @@ func CurrentExe() string {
 }
 
 func PidDir() string {
-	dir := filepath.Join(os.TempDir(), "pnet")
+	dir := filepath.Join(os.TempDir(), "PotatoNet")
 	_ = os.MkdirAll(dir, 0o755)
 	return dir
 }
@@ -34,7 +34,7 @@ func PidDir() string {
 // портативный запуск (папка рядом с exe) от установленного (AppImage,
 // Program Files), где данные надо складывать в пользовательский каталог.
 func IsWritable(dir string) bool {
-	f, err := os.CreateTemp(dir, ".pnet-write-test-*")
+	f, err := os.CreateTemp(dir, ".potatonet-write-test-*")
 	if err != nil {
 		return false
 	}

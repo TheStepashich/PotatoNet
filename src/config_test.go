@@ -1,22 +1,30 @@
-package main
+package backend
 
 import (
 	"os"
 	"path/filepath"
-	"pnet/src/platform"
+	"potatonet/src/platform"
 	"testing"
 )
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
-	if len(cfg.Bootstrap) != 3 {
-		t.Fatalf("expected 3 bootstrap peers, got %+v", cfg.Bootstrap)
+	if len(cfg.Bootstrap) != 1 {
+		t.Fatalf("expected 1 bootstrap peer, got %+v", cfg.Bootstrap)
 	}
-	if cfg.Bootstrap[0] != "udp://45.112.194.131:11010" || cfg.Bootstrap[1] != "udp://92.63.103.86:11010" || cfg.Bootstrap[2] != "udp://104.239.87.24:11010" {
+	if cfg.Bootstrap[0] != "udp://bootstrap.potatom.net:11010" {
 		t.Fatalf("unexpected bootstrap peers: %+v", cfg.Bootstrap)
 	}
 	if len(cfg.Networks) != 0 {
 		t.Fatalf("expected no default networks, got %+v", cfg.Networks)
+	}
+}
+
+func TestDefaultBootstrapEnvOverride(t *testing.T) {
+	t.Setenv("POTATONET_BOOTSTRAP", "udp://a.example:11010, udp://b.example:11010")
+	got := defaultBootstrap()
+	if len(got) != 2 || got[0] != "udp://a.example:11010" || got[1] != "udp://b.example:11010" {
+		t.Fatalf("env bootstrap mismatch: %+v", got)
 	}
 }
 
@@ -30,7 +38,7 @@ func TestDefaultConfigTemplateLoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Bootstrap) != 3 || got.Bootstrap[2] != "udp://104.239.87.24:11010" {
+	if len(got.Bootstrap) != 1 || got.Bootstrap[0] != "udp://bootstrap.potatom.net:11010" {
 		t.Fatalf("bootstrap mismatch: %+v", got.Bootstrap)
 	}
 	if len(got.Networks) != 0 {

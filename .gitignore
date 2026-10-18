@@ -8,22 +8,14 @@ easytier.zip
 config.yml
 
 # local builds
-/pnet
-/pnet.exe
-/pnet.zip
+/PotatoNet
+/PotatoNet.exe
+/PotatoNet.zip
 /build/
 /dist-*/
 
-# Android / Rust / Node build artifacts
-android/app/target/
-android/app/source/target/
-android/fork/build/
-android/app/*.apk
-android/app/*.idsig
-android/app/source/node_modules/
-android/app/source/easytier-gui/node_modules/
-android/app/source/easytier-gui/dist/
-android/app/source/easytier-gui/src-tauri/gen/
+# Wails generated bindings (regenerated on build; frontend uses window.go directly)
+/frontend/wailsjs/
 
 # misc
 *.log

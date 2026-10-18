@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"pnet/src/platform/base"
+	"potatonet/src/platform/base"
 )
 
 func IsAdmin() bool {
@@ -64,11 +64,18 @@ func RelaunchElevated(dataDir string) error {
 		launch = copy
 	}
 
-	args := []string{"--data-dir", dataDir, "server"}
+	args := []string{"--data-dir", dataDir}
+	displayEnv := []string{
+		"DISPLAY=" + os.Getenv("DISPLAY"),
+		"WAYLAND_DISPLAY=" + os.Getenv("WAYLAND_DISPLAY"),
+		"XAUTHORITY=" + os.Getenv("XAUTHORITY"),
+		"DBUS_SESSION_BUS_ADDRESS=" + os.Getenv("DBUS_SESSION_BUS_ADDRESS"),
+	}
 
 	var cmd *exec.Cmd
 	if _, err := exec.LookPath("pkexec"); err == nil {
-		cmd = exec.Command("pkexec", append([]string{launch}, args...)...)
+		// pkexec очищает окружение; прокидываем переменные графической сессии.
+		cmd = exec.Command("pkexec", append(append([]string{"env"}, displayEnv...), append([]string{launch}, args...)...)...)
 	} else {
 		cmd = exec.Command("sudo", append([]string{
 			"-E",
@@ -88,8 +95,8 @@ func RelaunchElevated(dataDir string) error {
 // путь к копии. Запись идёт через временный файл + rename, чтобы не поймать
 // ETXTBSY, если копия уже запущена.
 func copyToTemp(src string) (string, error) {
-	dst := filepath.Join(os.TempDir(), fmt.Sprintf("pnet-core-%d", os.Getuid()))
-	tmp, err := os.CreateTemp(os.TempDir(), "pnet-core-*.tmp")
+	dst := filepath.Join(os.TempDir(), fmt.Sprintf("potatonet-core-%d", os.Getuid()))
+	tmp, err := os.CreateTemp(os.TempDir(), "potatonet-core-*.tmp")
 	if err != nil {
 		return "", err
 	}

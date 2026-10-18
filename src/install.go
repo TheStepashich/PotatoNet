@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"pnet/src/platform"
+	"potatonet/src/platform"
 )
 
 func copyFile(src, dst string, mode os.FileMode) error {
@@ -35,6 +35,13 @@ func copyFile(src, dst string, mode os.FileMode) error {
 		_ = os.Chmod(tmp, mode)
 	}
 	return os.Rename(tmp, dst)
+}
+
+// Prepare копирует бинарники EasyTier из комплекта в каталог данных. Вызывать
+// до повышения прав: в AppImage комплект лежит в read-only FUSE-монтировании,
+// недоступном root.
+func Prepare(paths platform.Paths) error {
+	return installEasyTier(paths)
 }
 
 // installEasyTier кладёт бинарники EasyTier (core + cli) из комплекта

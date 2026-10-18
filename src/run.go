@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"pnet/src/platform"
+	"potatonet/src/platform"
 )
 
 // cappedBuffer хранит первые max байт вывода процесса, чтобы показать причину
@@ -123,7 +123,7 @@ func removePorts(name string) {
 }
 
 // freeUDPPort ищет свободный UDP-порт, начиная с base. Позволяет новому
-// приложению не конфликтовать с классическим pnet (тот занимает 11010+i).
+// приложению не конфликтовать с классическим PotatoNet (тот занимает 11010+i).
 func freeUDPPort(base int) int {
 	for p := base; p < base+1000; p++ {
 		pc, err := net.ListenPacket("udp", fmt.Sprintf("0.0.0.0:%d", p))
@@ -342,15 +342,15 @@ type Peer struct {
 	NAT      string `json:"nat"`
 }
 
-type networkPeers struct {
+type NetworkPeers struct {
 	Connected bool   `json:"connected"`
 	Starting  bool   `json:"starting"`
 	Error     string `json:"error,omitempty"`
 	Peers     []Peer `json:"peers"`
 }
 
-func peersForNetwork(paths platform.Paths, name string) networkPeers {
-	res := networkPeers{Peers: []Peer{}}
+func peersForNetwork(paths platform.Paths, name string) NetworkPeers {
+	res := NetworkPeers{Peers: []Peer{}}
 	if !fileExists(paths.EasyTierCLI) {
 		return res
 	}
@@ -361,12 +361,14 @@ func peersForNetwork(paths platform.Paths, name string) networkPeers {
 	if rpc == 0 {
 		return res
 	}
-	out, err := exec.Command(
+	cmd := exec.Command(
 		paths.EasyTierCLI,
 		"-o", "json",
 		"-p", fmt.Sprintf("127.0.0.1:%d", rpc),
 		"peer",
-	).Output()
+	)
+	platform.SetupProcAttrs(cmd)
+	out, err := cmd.Output()
 	if err != nil {
 		return res
 	}

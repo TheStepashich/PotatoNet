@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"pnet/src/platform/base"
+	"potatonet/src/platform/base"
 )
 
 func SetupProcAttrs(cmd *exec.Cmd) {

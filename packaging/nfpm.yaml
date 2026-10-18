@@ -1,0 +1,44 @@
+name: potatonet
+arch: amd64
+platform: linux
+version: "${VERSION}"
+section: net
+priority: optional
+maintainer: TheStepashich <stepa.shich@yandex.ru>
+vendor: PotatoNet
+license: MIT
+description: |
+  PotatoNet — простая P2P VPN на базе EasyTier.
+  .
+  Виртуальная сеть поверх интернета: подключение по имени сети,
+  автоматический выбор узла, автозапуск и подключение при входе в систему.
+contents:
+  - src: build/dist-linux/PotatoNet
+    dst: /usr/lib/potatonet/PotatoNet
+    file_info:
+      mode: 0755
+  - src: build/dist-linux/easytier-linux-x86_64/easytier-core
+    dst: /usr/lib/potatonet/easytier-linux-x86_64/easytier-core
+    file_info:
+      mode: 0755
+  - src: build/dist-linux/easytier-linux-x86_64/easytier-cli
+    dst: /usr/lib/potatonet/easytier-linux-x86_64/easytier-cli
+    file_info:
+      mode: 0755
+  - src: build/dist-linux/THIRD_PARTY_NOTICES.md
+    dst: /usr/share/doc/potatonet/THIRD_PARTY_NOTICES.md
+  - src: /usr/lib/potatonet/PotatoNet
+    dst: /usr/bin/PotatoNet
+    type: symlink
+  - src: packaging/PotatoNet.desktop
+    dst: /usr/share/applications/PotatoNet.desktop
+  - src: assets/icon.png
+    dst: /usr/share/icons/hicolor/256x256/apps/PotatoNet.png
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libwebkit2gtk-4.1-0
+  rpm:
+    depends:
+      - webkit2gtk4.1

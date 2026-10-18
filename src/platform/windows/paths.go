@@ -11,13 +11,13 @@ import (
 // с установленным приложением (Program Files) доступна только для чтения.
 func DataDir() string {
 	if v := os.Getenv("APPDATA"); v != "" {
-		return filepath.Join(v, "pnet")
+		return filepath.Join(v, "PotatoNet")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		return filepath.Join(os.TempDir(), "pnet")
+		return filepath.Join(os.TempDir(), "PotatoNet")
 	}
-	return filepath.Join(home, "pnet")
+	return filepath.Join(home, "PotatoNet")
 }
 
 func CoreName() string         { return "easytier-core.exe" }

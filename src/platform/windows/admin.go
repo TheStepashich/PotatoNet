@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"pnet/src/platform/base"
+	"potatonet/src/platform/base"
 )
 
 func IsAdmin() bool {
@@ -28,14 +28,16 @@ func IsAdmin() bool {
 // ChownToUser — no-op: elevation на Windows не меняет владельца файлов.
 func ChownToUser(string) {}
 
-func RelaunchElevated(string) error {
+// RelaunchElevated перезапускает GUI с правами администратора (UAC), передавая
+// каталог данных, чтобы elevated-окно работало с тем же config.yml/EasyTier.
+func RelaunchElevated(dataDir string) error {
 	exe := base.CurrentExe()
 	verb := syscall.StringToUTF16Ptr("runas")
 	file := syscall.StringToUTF16Ptr(exe)
-	arg := syscall.StringToUTF16Ptr("server")
+	arg := syscall.StringToUTF16Ptr(fmt.Sprintf(`--data-dir "%s"`, dataDir))
 	dir := syscall.StringToUTF16Ptr(os.Getenv("WINDIR"))
-	// SW_HIDE (0): не показывать консоль у elevated-бэкенда.
-	err := windows.ShellExecute(0, verb, file, arg, dir, 0)
+	// SW_SHOWNORMAL (1): показать окно elevated-приложения.
+	err := windows.ShellExecute(0, verb, file, arg, dir, 1)
 	if err != nil {
 		return fmt.Errorf("ShellExecute: %v", err)
 	}

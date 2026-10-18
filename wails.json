@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "PotatoNet",
+  "outputfilename": "PotatoNet",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "TheStepashich",
+    "email": "stepa.shich@yandex.ru"
+  }
+}

@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"pnet/src/platform"
+	"potatonet/src/platform"
 	"testing"
 )
 
@@ -103,7 +103,7 @@ func TestPeersEmptyWithoutCLI(t *testing.T) {
 	}
 	var resp struct {
 		Ok       bool                    `json:"ok"`
-		Networks map[string]networkPeers `json:"networks"`
+		Networks map[string]NetworkPeers `json:"networks"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatal(err)

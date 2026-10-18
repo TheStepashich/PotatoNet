@@ -1,107 +1,111 @@
 PLATFORM   ?= linux
 ARCH       ?= amd64
-NW_VERSION ?= 0.90.0
 ET_VERSION ?= 2.4.5
+VERSION    ?= $(shell cat VERSION 2>/dev/null || echo 0.0.0)
+BOOTSTRAP  ?= udp://bootstrap.potatom.net:11010
 
 GO        = go
-NWJS_DIR  = ./nwjs
+GOBIN     = $(shell $(GO) env GOPATH)/bin
+WAILS    ?= $(shell command -v wails 2>/dev/null || echo $(GOBIN)/wails)
 BUILD_DIR = ./build
-SRC_DIR   = ./src
 
 ifeq ($(PLATFORM),windows)
-GOOS        = windows
-NW_PLATFORM = win
-NW_ARCHIVE  = nwjs-v$(NW_VERSION)-win-x64.zip
-NW_DIRNAME  = nwjs-v$(NW_VERSION)-win-x64
-NW_BIN      = nw.exe
-APP_BIN     = pnet.exe
-CORE_BIN    = pnet-core.exe
+WAILS_PLATFORM = windows/amd64
+APP_BIN     = PotatoNet.exe
+OS_NAME = win
 ET_DIRNAME  = easytier-windows-x86_64
 ET_CORE     = easytier-core.exe
 ET_CLI      = easytier-cli.exe
-LDFLAGS     = -ldflags -H=windowsgui
+export CC   = x86_64-w64-mingw32-gcc
+export CXX  = x86_64-w64-mingw32-g++
+WAILS_ENV   =
+WAILS_TAGS  =
 else
-GOOS        = linux
-NW_PLATFORM = linux
-NW_ARCHIVE  = nwjs-v$(NW_VERSION)-linux-x64.tar.gz
-NW_DIRNAME  = nwjs-v$(NW_VERSION)-linux-x64
-NW_BIN      = nw
-APP_BIN     = pnet
-CORE_BIN    = pnet-core
+WAILS_PLATFORM = linux/amd64
+APP_BIN     = PotatoNet
+OS_NAME = linux
 ET_DIRNAME  = easytier-linux-x86_64
 ET_CORE     = easytier-core
 ET_CLI      = easytier-cli
-LDFLAGS     =
+# webkit2gtk-4.1: современный ABI, libjxl 0.12 (в 4.0 на Arch/rolling — битая
+# зависимость libjxl.so.0.11). 4.1 присутствует во всех актуальных дистрибутивах.
+WAILS_TAGS  = -tags webkit2_41
+WAILS_ENV   =
 endif
 
+ICON_PNG = assets/icon.png
+ICON_ICO = assets/icon.ico
+
 ET_ZIP = $(ET_DIRNAME)-v$(ET_VERSION).zip
+DIST   = $(BUILD_DIR)/dist-$(OS_NAME)
 
-NW_RUNTIME = $(BUILD_DIR)/nw-runtime-$(NW_PLATFORM)
-DIST       = $(BUILD_DIR)/dist-$(NW_PLATFORM)
-ARCHIVE    = $(BUILD_DIR)/$(NW_ARCHIVE)
+# Версия (из файла VERSION) и bootstrap подставляются в бинарник без правки кода:
+#   make build VERSION=1.2.3 BOOTSTRAP=udp://my.server:11010
+LDFLAGS = -X potatonet/src.Version=$(VERSION) -X potatonet/src.BootstrapPeer=$(BOOTSTRAP)
 
+NSIS_VER = 3.12-1
+NSIS_DIR = $(BUILD_DIR)/tools/nsis
+MAKENSIS = $(NSIS_DIR)/usr/bin/makensis
 APPIMAGE_TOOL = $(BUILD_DIR)/tools/appimagetool
-NSIS_VER      = 3.12-1
-NSIS_DIR      = $(BUILD_DIR)/tools/nsis
-MAKENSIS      = $(NSIS_DIR)/usr/bin/makensis
 
-.PHONY: all build run package appimage installer nw-runtime test clean
+.PHONY: all build run package appimage installer test clean
 
 all: build
 
-# Самодостаточная папка build/dist-<platform>: рантайм NW.js + приложение + бэкенд.
-# Пользователь запускает pnet(.exe); он поднимает pnet-core(.exe) с окном.
-build: nw-runtime
-	@mkdir -p $(BUILD_DIR)/.keep
-	@[ -f $(DIST)/config.yml ] && cp -f $(DIST)/config.yml $(BUILD_DIR)/.keep/ || true
+# Иконки: из PNG собирается многоразмерный ICO (для установщика) и копия
+# build/appicon.png, из которой Wails делает иконку EXE. Пересобираются
+# автоматически, когда assets/icon.png новее.
+$(ICON_ICO): $(ICON_PNG)
+	@if command -v magick >/dev/null 2>&1; then \
+		magick $(ICON_PNG) -define icon:auto-resize=256,128,96,64,48,32,24,16 $(ICON_ICO); \
+	else \
+		echo "magick не найден: оставляю существующий $(ICON_ICO)"; \
+	fi
+
+$(BUILD_DIR)/appicon.png: $(ICON_PNG)
+	@mkdir -p $(BUILD_DIR)
+	@cp -f $(ICON_PNG) $@
+
+# Собирает Wails-приложение и раскладывает самодостаточный дистрибутив в
+# build/dist-<platform>: бинарник PotatoNet + комплект EasyTier рядом с ним.
+build: $(ICON_ICO) $(BUILD_DIR)/appicon.png
+	@command -v $(WAILS) >/dev/null 2>&1 || { \
+		echo "Не найден 'wails' ($(WAILS))."; \
+		echo "Установите: go install github.com/wailsapp/wails/v2/cmd/wails@latest"; \
+		exit 1; \
+	}
+	@# Wails кэширует build/windows/icon.ico и не обновляет его при смене
+	@# appicon.png — удаляем, чтобы иконка EXE всегда соответствовала исходнику.
+	@if [ "$(PLATFORM)" = "windows" ]; then rm -f $(BUILD_DIR)/windows/icon.ico; fi
+	@echo "Сборка PotatoNet ($(WAILS_PLATFORM))..."
+	@$(WAILS_ENV) $(WAILS) build -s -clean -platform $(WAILS_PLATFORM) $(WAILS_TAGS) -ldflags "$(LDFLAGS)" -o $(APP_BIN)
 	@rm -rf $(DIST)
-	@cp -rT $(NW_RUNTIME) $(DIST)
-	@mv $(DIST)/$(NW_BIN) $(DIST)/$(APP_BIN)
-	@cp -rT $(NWJS_DIR) $(DIST)
-	@cp -rn $(BUILD_DIR)/.keep/. $(DIST)/ 2>/dev/null || true
 	@mkdir -p $(DIST)/$(ET_DIRNAME)
+	@cp -f $(BUILD_DIR)/bin/$(APP_BIN) $(DIST)/$(APP_BIN)
 	@if [ ! -f $(BUILD_DIR)/$(ET_ZIP) ]; then \
-		echo "Скачиваю EasyTier $(ET_VERSION) ($(NW_PLATFORM))..."; \
+		echo "Скачиваю EasyTier $(ET_VERSION)..."; \
 		curl -fL -o $(BUILD_DIR)/$(ET_ZIP) \
 			https://github.com/EasyTier/EasyTier/releases/download/v$(ET_VERSION)/$(ET_ZIP); \
 	fi
 	@unzip -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' '$(ET_DIRNAME)/Packet.dll' '$(ET_DIRNAME)/wintun.dll' -d $(DIST)/ >/dev/null 2>&1 || \
-	unzip -j -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' '$(ET_DIRNAME)/Packet.dll' '$(ET_DIRNAME)/wintun.dll' -d $(DIST)/$(ET_DIRNAME) >/dev/null 2>&1 || true
+		unzip -j -o $(BUILD_DIR)/$(ET_ZIP) '$(ET_DIRNAME)/$(ET_CORE)' '$(ET_DIRNAME)/$(ET_CLI)' '$(ET_DIRNAME)/Packet.dll' '$(ET_DIRNAME)/wintun.dll' -d $(DIST)/$(ET_DIRNAME) >/dev/null 2>&1 || true
 	@chmod +x $(DIST)/$(ET_DIRNAME)/$(ET_CORE) $(DIST)/$(ET_DIRNAME)/$(ET_CLI) 2>/dev/null || true
 	@cp -f packaging/THIRD_PARTY_NOTICES.md $(DIST)/ 2>/dev/null || true
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(ARCH) \
-	$(GO) build $(LDFLAGS) -o $(DIST)/$(CORE_BIN) $(SRC_DIR)
-	@rm -rf $(BUILD_DIR)/.keep
-	@# Оптимизация размера для Windows
-	@PATH="$$HOME/.local/bin:$$PATH" upx --force --best --lzma $(DIST)/$(APP_BIN) $(DIST)/$(CORE_BIN) 2>/dev/null || true
-	@# Удаляем лишние локали
-	@if [ "$(PLATFORM)" = "windows" ]; then 		cd $(DIST)/locales && for f in *.pak *.pak.info; do 			case "$$f" in 				en-US.pak|en-US.pak.info|ru.pak|ru.pak.info) ;; 				*) rm -f "$$f" ;; 			esac; 		done 2>/dev/null || true; 	fi
-	@# Удаляем ненужные файлы из дистрибутива
-	@if [ "$(PLATFORM)" = "windows" ]; then 		rm -f $(DIST)/credits.html 2>/dev/null || true; 	fi
+	@if [ "$(PLATFORM)" = "windows" ]; then \
+		PATH="$$HOME/.local/bin:$$PATH" upx --force --best --lzma $(DIST)/$(APP_BIN) 2>/dev/null || true; \
+	fi
+	@# easytier-core НЕ сжимаем UPX: это Rust-бинарник, и после UPX ломаются
+	@# таблицы исключений/CFG — при запуске падает с 0xc0000005 (access violation).
 	@echo "Готово: $(DIST)  (запуск: $(DIST)/$(APP_BIN))"
 
-# Скачивает портативный рантайм NW.js в build/nw-runtime-<platform> (один раз).
-nw-runtime:
-	@if [ ! -f $(NW_RUNTIME)/$(NW_BIN) ]; then \
-		echo "Скачиваю NW.js $(NW_VERSION) ($(NW_PLATFORM))..."; \
-		mkdir -p $(NW_RUNTIME) $(BUILD_DIR)/nwtmp; \
-		curl -fL -o $(ARCHIVE) https://dl.nwjs.io/v$(NW_VERSION)/$(NW_ARCHIVE); \
-		case "$(NW_ARCHIVE)" in \
-			*.zip) unzip -q -o $(ARCHIVE) -d $(BUILD_DIR)/nwtmp ;; \
-			*.tar.gz) tar xzf $(ARCHIVE) -C $(BUILD_DIR)/nwtmp ;; \
-		esac; \
-		cp -rT $(BUILD_DIR)/nwtmp/$(NW_DIRNAME) $(NW_RUNTIME); \
-		rm -rf $(BUILD_DIR)/nwtmp $(ARCHIVE); \
-	fi
-
-# Собирает и запускает окно приложения (для текущей платформы).
+# Собирает и запускает приложение (для текущей платформы).
 run: build
 	$(DIST)/$(APP_BIN)
 
 # Собирает и упаковывает дистрибутив в zip.
 package: build
-	@cd $(BUILD_DIR) && zip -qr pnet-$(NW_PLATFORM)-x64.zip dist-$(NW_PLATFORM)
-	@echo "Архив: $(BUILD_DIR)/pnet-$(NW_PLATFORM)-x64.zip"
+	@cd $(BUILD_DIR) && zip -qr PotatoNet-$(OS_NAME)-x64.zip dist-$(PLATFORM)
+	@echo "Архив: $(BUILD_DIR)/PotatoNet-$(OS_NAME)-x64.zip"
 
 # --- AppImage (только Linux) ---
 $(APPIMAGE_TOOL):
@@ -115,20 +119,20 @@ appimage:
 	@echo "AppImage собирается только для Linux (без PLATFORM=windows)"; false
 else
 appimage: build $(APPIMAGE_TOOL)
-	@rm -rf $(BUILD_DIR)/pnet.AppDir
-	@mkdir -p $(BUILD_DIR)/pnet.AppDir/usr/bin \
-	           $(BUILD_DIR)/pnet.AppDir/usr/share/applications \
-	           $(BUILD_DIR)/pnet.AppDir/usr/share/icons/hicolor/256x256/apps
-	@cp -rT $(DIST) $(BUILD_DIR)/pnet.AppDir/usr/bin
-	@rm -f $(BUILD_DIR)/pnet.AppDir/usr/bin/config.yml
-	@install -m755 packaging/AppRun $(BUILD_DIR)/pnet.AppDir/AppRun
-	@install -m644 packaging/pnet.desktop $(BUILD_DIR)/pnet.AppDir/pnet.desktop
-	@install -m644 packaging/pnet.desktop $(BUILD_DIR)/pnet.AppDir/usr/share/applications/pnet.desktop
-	@install -m644 assets/icon.png $(BUILD_DIR)/pnet.AppDir/pnet.png
-	@install -m644 assets/icon.png $(BUILD_DIR)/pnet.AppDir/usr/share/icons/hicolor/256x256/apps/pnet.png
+	@rm -rf $(BUILD_DIR)/PotatoNet.AppDir
+	@mkdir -p $(BUILD_DIR)/PotatoNet.AppDir/usr/bin \
+	           $(BUILD_DIR)/PotatoNet.AppDir/usr/share/applications \
+	           $(BUILD_DIR)/PotatoNet.AppDir/usr/share/icons/hicolor/256x256/apps
+	@cp -rT $(DIST) $(BUILD_DIR)/PotatoNet.AppDir/usr/bin
+	@rm -f $(BUILD_DIR)/PotatoNet.AppDir/usr/bin/config.yml
+	@install -m755 packaging/AppRun $(BUILD_DIR)/PotatoNet.AppDir/AppRun
+	@install -m644 packaging/PotatoNet.desktop $(BUILD_DIR)/PotatoNet.AppDir/PotatoNet.desktop
+	@install -m644 packaging/PotatoNet.desktop $(BUILD_DIR)/PotatoNet.AppDir/usr/share/applications/PotatoNet.desktop
+	@install -m644 assets/icon.png $(BUILD_DIR)/PotatoNet.AppDir/PotatoNet.png
+	@install -m644 assets/icon.png $(BUILD_DIR)/PotatoNet.AppDir/usr/share/icons/hicolor/256x256/apps/PotatoNet.png
 	APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 $(APPIMAGE_TOOL) \
-		$(BUILD_DIR)/pnet.AppDir $(BUILD_DIR)/pnet-linux-x64.AppImage
-	@echo "Готово: $(BUILD_DIR)/pnet-linux-x64.AppImage"
+		$(BUILD_DIR)/PotatoNet.AppDir $(BUILD_DIR)/PotatoNet-linux-x64.AppImage
+	@echo "Готово: $(BUILD_DIR)/PotatoNet-linux-x64.AppImage"
 endif
 
 # --- Установщик Windows (NSIS, makensis из deb-пакетов Debian) ---
@@ -144,21 +148,20 @@ $(MAKENSIS):
 
 ifeq ($(PLATFORM),windows)
 installer: build $(MAKENSIS)
-	@NSISDIR=$(abspath $(NSIS_DIR))/usr/share/nsis $(MAKENSIS) -V2 packaging/installer.nsi
-	@echo "Готово: $(BUILD_DIR)/pnet-setup-x64.exe"
+	@NSISDIR=$(abspath $(NSIS_DIR))/usr/share/nsis $(MAKENSIS) -V2 -DAPP_VERSION=$(VERSION) packaging/installer.nsi
+	@echo "Готово: $(BUILD_DIR)/PotatoNet-setup-x64.exe"
 else
 installer:
 	@echo "Используйте: make installer PLATFORM=windows"; false
 endif
 
 test:
-	$(GO) test ./...
+	$(GO) test $(WAILS_TAGS) ./...
 
-# Удаляет только артефакты этого (potatonet) проекта, не трогая классический
-# build/Linux и т.п. из ветки main (их использует systemd-служба pnet).
+# Удаляет только артефакты этого (PotatoNet) проекта, не трогая классический
+# build/Linux и т.п. из ветки main (их использует systemd-служба PotatoNet).
 clean:
 	rm -rf $(BUILD_DIR)/dist-linux $(BUILD_DIR)/dist-win \
-	       $(BUILD_DIR)/nw-runtime-linux $(BUILD_DIR)/nw-runtime-win \
-	       $(BUILD_DIR)/nwjs $(BUILD_DIR)/pnet-linux-x64.zip $(BUILD_DIR)/pnet-win-x64.zip \
-	       $(BUILD_DIR)/pnet.AppDir $(BUILD_DIR)/pnet-linux-x64.AppImage \
-	       $(BUILD_DIR)/pnet-setup-x64.exe
+	       $(BUILD_DIR)/bin $(BUILD_DIR)/PotatoNet-linux-x64.zip $(BUILD_DIR)/PotatoNet-win-x64.zip \
+	       $(BUILD_DIR)/PotatoNet.AppDir $(BUILD_DIR)/PotatoNet-linux-x64.AppImage \
+	       $(BUILD_DIR)/PotatoNet-setup-x64.exe

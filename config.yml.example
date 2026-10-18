@@ -1,0 +1,26 @@
+# PotatoNet — пример файла конфигурации.
+#
+# Скопируйте его в config.yml и правьте под себя. Обычно config.yml создаётся и
+# изменяется самим приложением; вручную он нужен для headless-режима (CLI).
+#
+# Где лежит config.yml:
+#   Linux:   ~/.local/share/PotatoNet/config.yml   ($XDG_DATA_HOME/PotatoNet)
+#   Windows: %APPDATA%\PotatoNet\config.yml
+# Рядом с приложением — в портативном режиме (файл-маркер `portable` рядом с
+# исполняемым файлом или переменная POTATONET_PORTABLE=1).
+
+# Bootstrap-сервера для поиска пиров. Задавать не обязательно — если список
+# пуст, подставляется встроенный. Свой адрес можно указать здесь, переменной
+# окружения POTATONET_BOOTSTRAP (несколько — через запятую) или при сборке:
+#   make build BOOTSTRAP=udp://my.server:11010
+bootstrap:
+  - udp://bootstrap.potatom.net:11010
+
+# VPN-сети. Сети с одинаковыми name и secret видят друг друга.
+networks:
+  - name: my-network          # имя сети
+    secret: change-me         # общий секрет сети
+    hostname: my-device       # имя устройства, необязательно
+
+  - name: another-network
+    secret: another-secret

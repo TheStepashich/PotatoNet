@@ -1,12 +1,13 @@
-package main
+package backend
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
-	"pnet/src/platform"
+	"potatonet/src/platform"
 )
 
 // Network — минимальная настройка одной VPN-сети, доступная пользователю.
@@ -34,13 +35,33 @@ type LegacyNet struct {
 	Secret string `yaml:"secret" json:"secret"`
 }
 
+// BootstrapPeer — встроенный bootstrap-сервер (несколько — через запятую).
+// Используется, если в config.yml не задан список bootstrap. Переопределяется
+// без правки кода при сборке, через ldflags (см. makefile):
+//
+//	make build BOOTSTRAP="udp://my.server:11010"
+//
+// а для готовой сборки — переменной окружения POTATONET_BOOTSTRAP.
+var BootstrapPeer = "udp://bootstrap.potatom.net:11010"
+
 // defaultBootstrap — встроенные bootstrap-сервера. Пользователь их не видит.
+// bootstrap.potatom.net имеет несколько A-записей; EasyTier сам разрешает имя
+// и при каждой попытке соединения выбирает один из адресов.
 func defaultBootstrap() []string {
-	return []string{
-		"udp://45.112.194.131:11010",
-		"udp://92.63.103.86:11010",
-		"udp://104.239.87.24:11010",
+	v := BootstrapPeer
+	if env := strings.TrimSpace(os.Getenv("POTATONET_BOOTSTRAP")); env != "" {
+		v = env
 	}
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		out = []string{"udp://bootstrap.potatom.net:11010"}
+	}
+	return out
 }
 
 func defaultConfig() *Config {

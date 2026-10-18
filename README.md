@@ -1,14 +1,11 @@
-# pnet — простой P2P VPN
+# PotatoNet — простой P2P VPN
 
-Нативное приложение для создания приватных VPN-сетей поверх [EasyTier](https://github.com/EasyTier/EasyTier).
-Аналог Radmin VPN, но проще: ввели имя сети, пароль и имя устройства — и вы в одной сети с друзьями.
+Нативное приложение для создания приватных VPN-сетей поверх
+[EasyTier](https://github.com/EasyTier/EasyTier). Аналог Radmin VPN, но проще:
+ввели имя сети, пароль и имя устройства — и вы в одной сети с друзьями.
 
-Приложение состоит из двух частей:
-
-- **NW.js** — нативное окно с интерфейсом (папка `nwjs/`).
-- **Go-бэкенд** — управляет EasyTier, запускается окном автоматически (папка `src/`).
-
-Бэкенд поднимает локальный API на `127.0.0.1:19090`, к которому обращается окно.
+Приложение — один исполняемый файл на [Wails v2](https://wails.io)
+(Go + нативный webview), интерфейс встроен в бинарник.
 
 ## Интерфейс
 
@@ -17,125 +14,64 @@
 - **Имя сети** — сети с одинаковым именем и паролем видят друг друга.
 - **Пароль** — общий секрет сети.
 - **Имя устройства (hostname)** — как вас видят другие; можно оставить пустым.
-- **Список устройств** — таблица подключённых узлов (IP, имя, тип соединения, задержка, потери, трафик, NAT).
-- **Несколько сетей** — можно добавить сколько угодно сетей; каждая отображается отдельной карточкой со своим списком устройств.
-- **Опции** — автозапуск при входе в систему (открывается это же окно).
+- **Список устройств** — таблица подключённых узлов (IP, имя, тип соединения,
+  задержка, потери, трафик, NAT).
+- **Несколько сетей** — можно добавить сколько угодно сетей; каждая
+  отображается отдельной карточкой со своим списком устройств.
+- **Опции** — автозапуск при входе в систему: приложение стартует и сразу
+  подключается к сохранённым сетям.
 
-Bootstrap-сервера, порты, DNS и IP настраиваются автоматически и в интерфейсе отсутствуют.
+## Сборка
 
-## Запуск
-
-### Быстрый старт
-
-Нужен Go 1.22+, `curl` и `unzip`. Команда соберёт самодостаточную папку
-(рантайм NW.js + приложение + бэкенд) и откроет окно:
-
-```bash
-make run                 # Linux
-```
-
-На выходе получается папка `build/dist-linux` (или `build/dist-win` для Windows)
-с запускаемым файлом `pnet` (`pnet.exe`):
-
-```
-build/dist-linux/
-  pnet            <- приложение (NW.js), его запускает пользователь
-  pnet-core       <- Go-бэкенд, окно поднимает его само
-  package.json, index.html, app.js, ...
-```
-
-### Windows-версия
-
-Кросс-сборка из Linux (нужны `curl`, `unzip`, `zip`):
+Нужны Go, `curl` и `unzip`; для сборки GUI — Wails v2 и зависимости webview
+(на Linux — `webkit2gtk-4.1`):
 
 ```bash
-make build PLATFORM=windows     # папка build/dist-win/
-make package PLATFORM=windows   # + архив build/pnet-win-x64.zip
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 
-Результат — `build/dist-win/` с `pnet.exe`. Скопируйте папку целиком на
-Windows и запустите `pnet.exe`. При первом подключении бэкенд запросит права
-администратора (нужны для TUN) и скачает EasyTier.
-
-Windows-бэкенд (`pnet-core.exe`) собирается как GUI-приложение, поэтому
-консоль не мелькает.
-
-### Установщик Windows
-
-Собирает установщик `build/pnet-setup-x64.exe` (NSIS, установка в профиль
-пользователя, без прав администратора). `makensis` скачивается автоматически
-из deb-пакетов Debian:
+`makefile` сам находит `wails` в `PATH` или в `$(go env GOPATH)/bin`.
 
 ```bash
-make installer PLATFORM=windows
+make run        # собрать и запустить (Linux)
+make build      # build/dist-linux/
+make test       # тесты
 ```
 
-### AppImage (Linux)
+Результат — папка `build/dist-linux` с исполняемым файлом `PotatoNet` и
+комплектом EasyTier рядом.
 
-Собирает переносимый `build/pnet-linux-x64.AppImage` (`appimagetool`
-скачивается автоматически):
+### Версия и bootstrap
+
+Версия хранится в одном файле `VERSION` и подставляется во все сборки:
+бинарник (`PotatoNet -version`), установщик Windows, deb/rpm и AppImage.
+
+Свой bootstrap-сервер задаётся при сборке, без правки кода:
 
 ```bash
-make appimage
+make build BOOTSTRAP=udp://my.server:11010
 ```
 
-### Где хранятся данные
+Несколько серверов — через запятую. Для уже собранного приложения то же можно
+задать переменной `POTATONET_BOOTSTRAP` или в `config.yml`.
 
-По умолчанию `config.yml` и бинарники EasyTier хранятся в каталоге пользователя:
+### Windows
 
-- Linux: `$XDG_DATA_HOME/pnet` (или `~/.local/share/pnet`)
-- Windows: `%APPDATA%\pnet`
-
-Портативный режим (данные рядом с приложением) включается файлом `portable`
-рядом с исполняемым файлом или переменной `PNET_PORTABLE=1`.
-
-### Dev-режим (системный NW.js)
-
-Если стоит `nw` в `PATH` (`sudo pacman -S nwjs`), рантайм скачивать не нужно:
-папка `build/dist-linux` уже содержит бэкенд рядом с приложением.
+Кросс-сборка из Linux (нужны `mingw-w64`, `curl`, `unzip`, `zip`, `upx`):
 
 ```bash
-nw build/dist-linux
-# или вручную: PNET_BACKEND=/путь/к/pnet-core nw nwjs
+make build PLATFORM=windows      # папка build/dist-win/
+make installer PLATFORM=windows  # установщик build/PotatoNet-setup-x64.exe
 ```
 
-Чтобы получить один исполняемый файл, упакуйте `build/dist-win` или
-`build/dist-linux` через
-[nw-builder](https://github.com/nwjs-community/nw-builder) или
-[nwjs-builder-phoenix](https://github.com/evshiron/nwjs-builder-phoenix).
+`easytier-core.exe` намеренно **не** сжимается UPX: после UPX у Rust-бинарника
+ломаются таблицы исключений и он падает с `0xc0000005`.
 
-## Как это работает
-
-1. Окно (`pnet`/`pnet.exe`) запускает Go-бэкенд (`pnet-core server`).
-2. Бэкенд при необходимости запрашивает права администратора (TUN-интерфейс EasyTier).
-3. При первом подключении EasyTier скачивается автоматически рядом с приложением.
-4. При нажатии «Подключить» бэкенд запускает `easytier-core` с DHCP-адресом и встроенными bootstrap-серверами.
-5. Список устройств читается через `easytier-cli -o json` по локальному RPC-порту сети.
-
-Конфиг (`config.yml`) и бинарники EasyTier лежат в каталоге пользователя (см.
-«Где хранятся данные»); при необходимости включается портативный режим.
-
-## CLI бэкенда (`pnet-core`)
-
-```
-pnet-core            # локальный API-сервер (используется окном)
-pnet-core run        # поднять все сети без окна
-pnet-core stop       # остановить все сети
-pnet-core peers      # показать устройства
-```
-
-## Сборка/тесты
+### AppImage
 
 ```bash
-make test
+make appimage   # build/PotatoNet-linux-x64.AppImage
 ```
 
-Переменные окружения для отладки:
-
-- `PNET_SKIP_ADMIN=1` — не запрашивать права администратора.
-- `PNET_ADDR=127.0.0.1:19090` — адрес локального API.
-- `PNET_BACKEND=/path/to/pnet-core` — путь к бэкенду для окна NW.js.
-- `PNET_PORTABLE=1` — хранить данные рядом с приложением.
-- `PNET_DATA_DIR=/path` — задать каталог данных вручную.
-- `PNET_EASYTIER_URL=...` — свой URL архива EasyTier (если GitHub недоступен).
-- `PNET_EASYTIER_ZIP=/path/easytier.zip` — готовый архив EasyTier локально.
+Релизные сборки (Windows + Linux) автоматически собираются в GitHub Actions по
+пушу тега `v*`.

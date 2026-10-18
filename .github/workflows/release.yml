@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows + Linux x64
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Version
+        run: |
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [[ -z "$FILE_VERSION" ]]; then
+            echo "::error::Файл VERSION пуст"; exit 1
+          fi
+          if [[ "${GITHUB_REF}" == refs/tags/* && "${GITHUB_REF_NAME#v}" != "$FILE_VERSION" ]]; then
+            echo "::error::Тег ${GITHUB_REF_NAME} не совпадает с VERSION=${FILE_VERSION}. Обновите файл VERSION."
+            exit 1
+          fi
+          echo "VERSION=${FILE_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64 \
+            curl unzip zip file xz-utils gettext-base \
+            imagemagick upx-ucl
+
+      - name: Install wails and nfpm
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build Linux
+        run: make build
+
+      - name: Build AppImage
+        run: make appimage
+
+      - name: Package Linux
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          mv build/PotatoNet-linux-x64.AppImage "release/PotatoNet-${VERSION}-linux-x86_64.AppImage"
+          tar -czf "release/PotatoNet-${VERSION}-linux-x86_64.tar.gz" -C build dist-linux
+          VERSION="$VERSION" envsubst < packaging/nfpm.yaml > build/nfpm.yaml
+          nfpm package --config build/nfpm.yaml --packager deb --target release/
+          nfpm package --config build/nfpm.yaml --packager rpm --target release/
+          mv release/potatonet_*.deb "release/PotatoNet-${VERSION}-linux-x86_64.deb"
+          mv release/potatonet-*.rpm "release/PotatoNet-${VERSION}-linux-x86_64.rpm"
+          ls -la release
+
+      - name: Build Windows
+        run: make build PLATFORM=windows
+
+      - name: Build Windows installer
+        run: make installer PLATFORM=windows
+
+      - name: Package Windows
+        run: |
+          set -euo pipefail
+          mv build/PotatoNet-setup-x64.exe "release/PotatoNet-${VERSION}-windows-x64-setup.exe"
+          ( cd build/dist-win && zip -qr "../../release/PotatoNet-${VERSION}-windows-x64-portable.zip" . )
+          ( cd release && sha256sum ./* > SHA256SUMS.txt )
+          ls -la release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release/
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            release/*
