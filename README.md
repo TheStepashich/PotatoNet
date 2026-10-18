@@ -13,14 +13,27 @@
 ### 1. Скачайте приложение
 Перейдите в раздел **[Releases](../../releases)** и скачайте последнюю версию для вашей ОС:
 
-- 🐧 **Linux:** `PotatoNet-linux-x64.AppImage` (или deb/rpm)
+- 🐧 **Linux:** `PotatoNet-*-linux-x86_64.AppImage` (или deb/rpm)
 
-- 🪟 **Windows:** `PotatoNet-setup-x64.exe`
+- 🪟 **Windows:** `PotatoNet-*-windows-x64-setup.exe`
 
-### 2. Запустите
+### 2. Установите и запустите
 
-- **Linux:** Сделайте файл исполняемым (`chmod +x PotatoNet-*.AppImage`) и запустите.
-- **Windows:** Просто запустите установщик.
+- 🐧 **Linux (deb/rpm):** устанавливайте через `apt` — только он подтягивает зависимости (в т.ч. `pkexec`):
+
+  ```bash
+  sudo apt install ./PotatoNet-*-linux-x86_64.deb
+  ```
+
+  ⚠️ Не используйте `dpkg -i` — он **не** устанавливает зависимости.
+
+- 🐧 **Linux (AppImage):** нужен установленный `pkexec` (пакет `pkexec` в Debian 12+/Ubuntu 22.04+):
+
+  ```bash
+  chmod +x PotatoNet-*.AppImage && ./PotatoNet-*.AppImage
+  ```
+
+- 🪟 **Windows:** Просто запустите установщик.
 
 ### 3. Подключитесь к сети
 В открывшемся окне добавьте сеть и заполните всего три поля:
