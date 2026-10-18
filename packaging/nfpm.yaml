@@ -39,6 +39,8 @@ overrides:
     depends:
       - libc6
       - libwebkit2gtk-4.1-0
+      - pkexec
   rpm:
     depends:
       - webkit2gtk4.1
+      - polkit

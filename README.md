@@ -95,6 +95,12 @@ make build BOOTSTRAP=udp://s1.example.com:11010,udp://s2.example.com:11010
 make appimage   # Создает build/PotatoNet-linux-x64.AppImage
 ```
 
+**Запуск и права root**
+
+Создание VPN-интерфейса требует root, поэтому приложение при запуске перезапускается с повышением прав: из графической сессии — через polkit-агент (`pkexec`), из терминала — как запасной вариант через `sudo`.
+
+Для пакетов `deb`/`rpm` зависимость `pkexec` (`polkit`) указывается автоматически. Для AppImage и ручной сборки `pkexec` должен быть установлен в системе (пакет `pkexec` в Debian 12+/Ubuntu 22.04+, `policykit-1` в более старых) либо доступен графический `askpass` (`ksshaskpass`, `ssh-askpass`, `lxqt-openssh-askpass`) для `sudo -A`. Если повышение прав невозможно, приложение покажет ошибку и запишет подробности в `~/.local/share/PotatoNet/potatonet.log`.
+
 ### 🪟 Сборка под Windows (из Linux)
 
 Требуется кросс-компиляция. Убедитесь, что установлены: `mingw-w64`, `curl`, `unzip`, `zip`, `upx`.

@@ -107,6 +107,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Пересоздаём релиз: тег может быть перевешен на исправленный коммит.
+          gh release delete "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" --yes || true
           gh release create "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
