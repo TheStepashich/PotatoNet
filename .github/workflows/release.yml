@@ -8,6 +8,9 @@ on:
 
 permissions:
   contents: write
+  # Нужно, чтобы SignPath-коннектор мог прочитать job/артефакты при подписи
+  # (если репозиторий приватный и приложение SignPath не установлено).
+  actions: read
 
 jobs:
   build:
@@ -81,6 +84,77 @@ jobs:
           set -euo pipefail
           mv build/PotatoNet-setup-x64.exe "release/PotatoNet-${VERSION}-windows-x64-setup.exe"
           ( cd build/dist-win && zip -qr "../../release/PotatoNet-${VERSION}-windows-x64-portable.zip" . )
+          ls -la release
+
+      # --- Подпись кода Windows (SignPath Foundation, бесплатно для OSS) ---
+      # Если секрет SIGNPATH_API_TOKEN не задан, шаги подписи пропускаются,
+      # и релиз собирается без подписи (как раньше).
+      - name: Stage unsigned Windows artifacts
+        id: stage-windows
+        run: |
+          set -euo pipefail
+          mkdir -p signing-windows
+          cp "release/PotatoNet-${VERSION}-windows-x64-setup.exe" signing-windows/
+          cp "release/PotatoNet-${VERSION}-windows-x64-portable.zip" signing-windows/
+          ls -la signing-windows
+
+      - name: Upload unsigned Windows artifacts
+        id: upload-unsigned-windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-windows
+          path: signing-windows/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Check code signing availability
+        id: signpath-check
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          if [ -n "${SIGNPATH_API_TOKEN:-}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SIGNPATH_API_TOKEN не задан — релиз будет без подписи кода."
+          fi
+
+      - name: Sign Windows artifacts (SignPath)
+        id: signpath
+        if: steps.signpath-check.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'potatonet' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG || 'windows' }}
+          github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-windows
+          parameters: |
+            version: ${{ toJSON(env.VERSION) }}
+
+      - name: Replace with signed Windows artifacts
+        if: steps.signpath-check.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          ls -la signed-windows
+          cp -f "signed-windows/PotatoNet-${VERSION}-windows-x64-setup.exe" release/
+          cp -f "signed-windows/PotatoNet-${VERSION}-windows-x64-portable.zip" release/
+
+      - name: Verify Windows signatures
+        if: steps.signpath-check.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends osslsigncode
+          osslsigncode verify "release/PotatoNet-${VERSION}-windows-x64-setup.exe"
+          unzip -o "release/PotatoNet-${VERSION}-windows-x64-portable.zip" -d /tmp/portable >/dev/null
+          osslsigncode verify /tmp/portable/PotatoNet.exe
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
           ( cd release && sha256sum ./* > SHA256SUMS.txt )
           ls -la release
 

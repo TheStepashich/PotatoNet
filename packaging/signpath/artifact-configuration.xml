@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration для Windows-релизов PotatoNet.
+
+  Входной артефакт (GitHub Actions artifact, загруженный actions/upload-artifact)
+  хранится как ZIP, поэтому корневой элемент — <zip-file>. Внутри подписываются:
+    * установщик NSIS  PotatoNet-<version>-windows-x64-setup.exe
+    * PotatoNet.exe    внутри портативного архива PotatoNet-<version>-windows-x64-portable.zip
+
+  Атрибуты product-name/company-name/product-version/file-version/copyright —
+  это ограничения (restrictions): значения в подписываемом файле должны им
+  соответствовать, иначе SignPath отклонит запрос. Значения берутся из VERSION
+  и из build/windows/info.json (см. makefile), а также из packaging/installer.nsi.
+
+  Этот файл нужно один раз создать в панели SignPath.io как Artifact
+  Configuration (slug: windows) — см. README, раздел «Code signing policy».
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+
+  <zip-file>
+    <pe-file path="PotatoNet-${version}-windows-x64-setup.exe"
+             product-name="PotatoNet"
+             company-name="PotatoNet"
+             product-version="${version}"
+             file-version="${version}"
+             copyright="© 2026 PotatoNet"
+             original-filename="${file.name}">
+      <authenticode-sign/>
+    </pe-file>
+
+    <zip-file path="PotatoNet-${version}-windows-x64-portable.zip">
+      <pe-file path="PotatoNet.exe"
+               product-name="PotatoNet"
+               company-name="PotatoNet"
+               product-version="${version}"
+               file-version="${version}"
+               copyright="© 2026 PotatoNet"
+               original-filename="${file.name}">
+        <authenticode-sign/>
+      </pe-file>
+    </zip-file>
+  </zip-file>
+</artifact-configuration>

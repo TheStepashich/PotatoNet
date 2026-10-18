@@ -74,6 +74,31 @@ build: $(ICON_ICO) $(BUILD_DIR)/appicon.png
 	@# Wails кэширует build/windows/icon.ico и не обновляет его при смене
 	@# appicon.png — удаляем, чтобы иконка EXE всегда соответствовала исходнику.
 	@if [ "$(PLATFORM)" = "windows" ]; then rm -f $(BUILD_DIR)/windows/icon.ico; fi
+	@# Метаданные EXE (версия, издатель) Wails берёт из build/windows/info.json.
+	@# Без своего info.json Wails подставляет ProductVersion «1.0.0» из шаблона и
+	@# EXE перестаёт соответствовать VERSION. Генерируем файл из $(VERSION), чтобы
+	@# версия в PE-ресурсах всегда совпадала с релизом (важно для подписи кода).
+	@if [ "$(PLATFORM)" = "windows" ]; then \
+		mkdir -p $(BUILD_DIR)/windows; \
+		printf '%s\n' \
+			'{' \
+			'  "fixed": {' \
+			'    "file_version": "$(VERSION)",' \
+			'    "product_version": "$(VERSION)"' \
+			'  },' \
+			'  "info": {' \
+			'    "0000": {' \
+			'      "CompanyName": "PotatoNet",' \
+			'      "FileDescription": "PotatoNet — простая P2P VPN",' \
+			'      "FileVersion": "$(VERSION)",' \
+			'      "LegalCopyright": "© 2026 PotatoNet",' \
+			'      "OriginalFilename": "$(APP_BIN)",' \
+			'      "ProductName": "PotatoNet",' \
+			'      "ProductVersion": "$(VERSION)"' \
+			'    }' \
+			'  }' \
+			'}' > $(BUILD_DIR)/windows/info.json; \
+	fi
 	@echo "Сборка PotatoNet ($(WAILS_PLATFORM))..."
 	@$(WAILS_ENV) $(WAILS) build -s -clean -platform $(WAILS_PLATFORM) $(WAILS_TAGS) -ldflags "$(LDFLAGS)" -o $(APP_BIN)
 	@rm -rf $(DIST)
