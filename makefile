@@ -43,9 +43,6 @@ DIST   = $(BUILD_DIR)/dist-$(OS_NAME)
 #   make build VERSION=1.2.3 BOOTSTRAP=udp://my.server:11010
 LDFLAGS = -X potatonet/src.Version=$(VERSION) -X potatonet/src.BootstrapPeer=$(BOOTSTRAP)
 
-NSIS_VER = 3.12-1
-NSIS_DIR = $(BUILD_DIR)/tools/nsis
-MAKENSIS = $(NSIS_DIR)/usr/bin/makensis
 APPIMAGE_TOOL = $(BUILD_DIR)/tools/appimagetool
 
 .PHONY: all build run package appimage installer test clean
@@ -135,8 +132,24 @@ appimage: build $(APPIMAGE_TOOL)
 	@echo "Готово: $(BUILD_DIR)/PotatoNet-linux-x64.AppImage"
 endif
 
-# --- Установщик Windows (NSIS, makensis из deb-пакетов Debian) ---
-$(MAKENSIS):
+# --- Установщик Windows (NSIS) ---
+# Предпочитаем системный makensis (в CI ставится из apt). Скачанный из
+# Debian-пула бинарник собран под glibc 2.38+ и на Ubuntu 22.04 не запускается
+# («GLIBC_2.38 not found»), поэтому он только как запасной вариант.
+NSIS_VER     = 3.12-1
+NSIS_DIR     = $(BUILD_DIR)/tools/nsis
+NSIS_BIN     = $(NSIS_DIR)/usr/bin/makensis
+SYS_MAKENSIS = $(shell command -v makensis 2>/dev/null)
+
+ifeq ($(SYS_MAKENSIS),)
+MAKENSIS    = $(NSIS_BIN)
+NSISDIR_ENV = NSISDIR=$(abspath $(NSIS_DIR))/usr/share/nsis
+else
+MAKENSIS    = $(SYS_MAKENSIS)
+NSISDIR_ENV =
+endif
+
+$(NSIS_BIN):
 	@mkdir -p $(NSIS_DIR) $(BUILD_DIR)
 	@echo "Скачиваю NSIS $(NSIS_VER)..."
 	@curl -fL -o $(BUILD_DIR)/nsis-common.deb http://deb.debian.org/debian/pool/main/n/nsis/nsis-common_$(NSIS_VER)_all.deb
@@ -144,11 +157,11 @@ $(MAKENSIS):
 	@cd $(NSIS_DIR) && ar x $(abspath $(BUILD_DIR)/nsis-common.deb) && for f in data.tar.*; do tar xf $$f; done && rm -f data.tar.* control.tar.* debian-binary
 	@cd $(NSIS_DIR) && ar x $(abspath $(BUILD_DIR)/nsis.deb) && for f in data.tar.*; do tar xf $$f; done && rm -f data.tar.* control.tar.* debian-binary
 	@rm -f $(BUILD_DIR)/nsis-common.deb $(BUILD_DIR)/nsis.deb
-	@chmod +x $(MAKENSIS)
+	@chmod +x $(NSIS_BIN)
 
 ifeq ($(PLATFORM),windows)
 installer: build $(MAKENSIS)
-	@NSISDIR=$(abspath $(NSIS_DIR))/usr/share/nsis $(MAKENSIS) -V2 -DAPP_VERSION=$(VERSION) packaging/installer.nsi
+	@$(NSISDIR_ENV) $(MAKENSIS) -V2 -DAPP_VERSION=$(VERSION) packaging/installer.nsi
 	@echo "Готово: $(BUILD_DIR)/PotatoNet-setup-x64.exe"
 else
 installer:
