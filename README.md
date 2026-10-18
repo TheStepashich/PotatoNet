@@ -25,15 +25,15 @@
   sudo apt install ./PotatoNet-*-linux-x86_64.deb
   ```
 
-  ⚠️ Не используйте `dpkg -i` — он **не** устанавливает зависимости.
-
 - 🐧 **Linux (AppImage):** нужен установленный `pkexec` (пакет `pkexec` в Debian 12+/Ubuntu 22.04+):
 
   ```bash
   chmod +x PotatoNet-*.AppImage && ./PotatoNet-*.AppImage
   ```
 
-- 🪟 **Windows:** Просто запустите установщик.
+- 🪟 **Windows:** просто запустите установщик.
+
+  > ⚠️ **Если появится предупреждение SmartScreen** («Windows защитила ваш компьютер», издатель «Неизвестный») - это потому, что сборка пока не подписана цифровой подписью. Это не вирус: нажмите **«Подробнее» → «Выполнить в любом случае»**. Скачивайте установщик только с официального сайта https://net.potatom.net.
 
 ### 3. Подключитесь к сети
 В открывшемся окне добавьте сеть и заполните всего три поля:
@@ -127,15 +127,3 @@ make installer PLATFORM=windows  # Результат: build/PotatoNet-setup-x64
 ```
 
 > ⚠️ **Важно:** Файл `easytier-core.exe` намеренно **не сжимается** через UPX. После сжатия UPX у Rust-бинарников ломаются таблицы исключений, и приложение падает с ошибкой `0xc0000005`.
-
-## 🔐 Code signing policy
-
-Windows-сборки PotatoNet подписываются цифровой подписью.
-
-- **Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).**
-- **Committers и reviewers:** [TheStepashich](https://github.com/TheStepashich)
-- **Approvers** (утверждают, какие релизы подписывать): [TheStepashich](https://github.com/TheStepashich)
-
-Подпись подтверждает, что установщик и `PotatoNet.exe` собраны из этого репозитория на GitHub Actions, и позволяет Windows показать имя издателя при запуске.
-
-**Конфиденциальность:** *This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.* Приложение не собирает телеметрию и не передаёт данные третьим лицам; для работы P2P-сети оно обменивается трафиком только с bootstrap-сервером (`bootstrap.potatom.net`) и участниками сетей, к которым вы подключаетесь. Сторонние компоненты и их лицензии перечислены в [`packaging/THIRD_PARTY_NOTICES.md`](packaging/THIRD_PARTY_NOTICES.md).
